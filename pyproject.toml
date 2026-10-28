@@ -8,4 +8,6 @@ dependencies = [
     "pandas",
     "wordcloud",
     "ipykernel",
+    "scikit-learn>=1.9.1",
+    "nltk>=3.10.4",
 ]
