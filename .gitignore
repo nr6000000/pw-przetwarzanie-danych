@@ -1,0 +1,10 @@
+# data too large
+newsSpace.bz2
+newsSpace/
+raw_newsspace.csv
+newsspace_era_b.csv
+
+# environments and caches
+.venv/
+__pycache__/
+.ipynb_checkpoints/
