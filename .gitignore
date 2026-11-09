@@ -10,3 +10,6 @@ __pycache__/
 .ipynb_checkpoints/
 
 .claude/
+
+# outputs of prepare_newsspace.py --train
+splits/
