@@ -2,7 +2,7 @@ r"""Convert the original AG's corpus dump (newsSpace.bz2, or the extracted newsS
 format, keeping era B only.
 
 Output (default newsspace_era_b.csv): UTF-8 CSV with a header row
-    source, title, description, date, time, rank
+    source, category, title, description, date, time, rank
   * date / time are pubdate split into YYYY-MM-DD and HH:MM:SS
   * an empty cell means NULL (description is NULL or empty in the dump)
 
@@ -31,7 +31,7 @@ import csv
 import re
 
 COLUMNS = ("source", "url", "title", "image", "category", "description", "rank", "pubdate", "video")
-OUTPUT_COLUMNS = ("source", "title", "description", "date", "time", "rank")
+OUTPUT_COLUMNS = ("source", "category", "title", "description", "date", "time", "rank")
 ERA_B_START = "2006-01-01"   # any date inside the Feb 2005 - May 2006 gap separates the eras
 
 NULL = "\\N"
@@ -122,7 +122,8 @@ def main():
                 if first_kept is None:
                     first_kept = total
                 date, _, time = pubdate.partition(" ")
-                out.writerow([r["source"], r["title"], r["description"] or "", date, time, r["rank"] or ""])
+                out.writerow([r["source"], r["category"], r["title"], r["description"] or "", date, time,
+                              r["rank"] or ""])
                 kept += 1
             elif first_kept is not None:
                 raise ValueError("row %d is undated or older than era B, but era B started at row %d"
