@@ -8,8 +8,8 @@
 
 ### Do zrobienia
 
-- [ ] Dataset (In Progress - Marcel)
-- [x] EDA (Jest, może podmienić na nowym datasecie?)
+- [x] Dataset
+- [x] EDA (Jest stara i nowa - czy coś jeszcze robimy z nową?)
 - [ ] Model B0
 - [ ] Model B1 (In Progress - Jarek)
 - [ ] Przetwarzanie P1, P2, P3
