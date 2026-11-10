@@ -12,7 +12,7 @@
 - [x] EDA (Jest stara i nowa - czy coś jeszcze robimy z nową?)
 - [ ] Model B0
 - [ ] Model B1 (In Progress - Jarek)
-- [ ] Przetwarzanie P1, P2, P3
+- [x] Przetwarzanie P1, P2, P3
 - [ ] Przygotowanie 5 slajdów z wynikami na Milestone 2
  
 **⬆️ Do zrobienia na 12.11.26 ⬆️**
