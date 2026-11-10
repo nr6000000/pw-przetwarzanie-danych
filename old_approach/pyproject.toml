@@ -10,4 +10,5 @@ dependencies = [
     "ipykernel",
     "scikit-learn>=1.9.1",
     "nltk>=3.10.4",
+    "bs4>=0.0.2",
 ]
