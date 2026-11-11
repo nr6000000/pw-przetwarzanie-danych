@@ -142,13 +142,11 @@ def write_csv(path: Path, header, rows) -> None:
 
 
 def run(args: argparse.Namespace) -> Path:
-    # if not args.models or len(set(args.models)) != len(args.models):
-    #     raise ValueError("Provide at least one model, without duplicates")
-    
-    # seeds = args.seeds if args.seeds is not None else config["seeds"]
-    # if not seeds or len(set(seeds)) != len(seeds):
-    #     raise ValueError("Provide at least one seed, without duplicates")
-    
+    if not args.models or len({path.stem for path in args.models}) != len(args.models):
+        raise ValueError("Provide model configurations with distinct names")
+    if not args.seeds or len(set(args.seeds)) != len(args.seeds):
+        raise ValueError("Provide at least one seed, without duplicates")
+    models = {path.stem: json.loads(path.read_text(encoding="utf-8")) for path in args.models}
     names = ["train", "val"] + (["test"] if args.evaluate_test else [])
     splits = {name: load_split(args.data_dir / f"{name}.csv") for name in names}
     labels = validate_splits(splits)
@@ -160,6 +158,7 @@ def run(args: argparse.Namespace) -> Path:
         "created_at_utc": timestamp,
         "status": "incomplete",
         "seeds": args.seeds,
+        "models": models,
 
         "features": "original title + newline + original description",
         "record_id": "source record_id, or sha256(normalised title + description); row_index is zero-based",
@@ -182,6 +181,13 @@ def run(args: argparse.Namespace) -> Path:
             for name, split in splits.items()
         },
     }
+    steps = [step for config in models.values() for step in config["pipeline"]]
+    if any(step["name"].endswith("_cleaner") for step in steps):
+        manifest["preprocess_sha256"] = hashlib.sha256(Path(__file__).with_name("preprocess.py").read_bytes()).hexdigest()
+        manifest["environment"].update({name: version(name) for name in ("nltk", "beautifulsoup4")})
+    manifest["dictionaries"] = {str(Path(step["args"]["dictionary_path"]).resolve()): hashlib.sha256(
+        Path(step["args"]["dictionary_path"]).read_bytes()).hexdigest()
+        for step in steps if step["name"] == "dictionary_cleaner"}
     preparation = args.data_dir / "manifest.json"
     if preparation.is_file():
         manifest["preparation_manifest"] = {
@@ -191,9 +197,7 @@ def run(args: argparse.Namespace) -> Path:
     write_json(folder / "manifest.json", manifest)
 
     summary = []
-    for model_config_path in args.models:
-        name = model_config_path.stem
-        model_config = json.loads(model_config_path.read_text(encoding="utf-8"))
+    for name, model_config in models.items():
         deterministic = model_config["deterministic"]
 
         for seed in [0] if deterministic else args.seeds:
@@ -207,11 +211,13 @@ def run(args: argparse.Namespace) -> Path:
                 model.fit(train.texts, train.labels)
             fit_seconds = time.perf_counter() - started
             result = {"model": name, "seed": seed, "fit_seconds": fit_seconds, "splits": {}}
-            # if name == "b0":
-            #     result["selected_class"] = str(model.predict([""])[0])
-            #     result["train_class_counts"] = dict(Counter(train.labels))
-            # else:
-            #     result["vocabulary_size"] = len(model.named_steps["tfidf"].vocabulary_)
+            if "dummy" in model.named_steps:
+                result["selected_class"] = str(model.predict([""])[0])
+                result["train_class_counts"] = dict(Counter(train.labels))
+            if "tfidf" in model.named_steps:
+                result["vocabulary_size"] = len(model.named_steps["tfidf"].vocabulary_)
+            if "freqword_cleaner" in model.named_steps:
+                result["frequency_words"] = len(model.named_steps["freqword_cleaner"].allowed_words)
             for split_name in names[1:]:
                 split = splits[split_name]
                 metrics, predictions = evaluate(model, split, labels)
@@ -234,6 +240,11 @@ def run(args: argparse.Namespace) -> Path:
                       f"macro-F1={metrics['macro_f1']:.4f} accuracy={metrics['accuracy']:.4f}")
             joblib.dump(model, model_folder / "model.joblib")
             write_json(model_folder / "metrics.json", result)
+    if any(step["name"] == "stopword_cleaner" for step in steps):
+        from nltk.corpus import stopwords
+        words = sorted(set(stopwords.words("english")))
+        manifest["stopwords"] = {"source": "nltk.corpus.stopwords.words('english')", "n_words": len(words),
+            "sha256": hashlib.sha256(("\n".join(words) + "\n").encode()).hexdigest()}
     write_csv(folder / "summary.csv", summary[0], (row.values() for row in summary))
     groups = defaultdict(list)
     for row in summary:
@@ -259,9 +270,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, default=Path("splits/"))
     parser.add_argument("--output-dir", type=Path, default=Path("results/"))
-    parser.add_argument("--models", type=Path, nargs="+")
+    parser.add_argument("--models", type=Path, nargs="+", required=True)
     parser.add_argument("--seeds", nargs="+", type=int, default=[502561219, 805712426, 54137036],
-                        help="B1 seeds; defaults to the configuration (B0 is fitted once)")
+                        help="Seeds for non-deterministic model configurations")
     parser.add_argument("--evaluate-test", action="store_true",
                         help="also evaluate the official test.csv after freezing experiments")
     args = parser.parse_args()

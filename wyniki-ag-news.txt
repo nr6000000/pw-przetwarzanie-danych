@@ -1,0 +1,12 @@
+ERA B, 5 KLAS - WYNIKI WALIDACYJNE, 11.11.2026
+Trening: 95 460 rekordow. Walidacja: 17 203 rekordy.
+Klasy: Sci/Tech, World, Business, Entertainment, Sports.
+Ocena tylko na walidacji.
+
+Wariant       Macro-F1    Accuracy
+b0            0.0666      19.98%
+b1            0.8985      89.91%
+p1b1          0.8728      87.21%
+p2b1          0.8970      89.71%
+p3b1          0.8667      86.71%
+p4b1          0.6104      61.94%
