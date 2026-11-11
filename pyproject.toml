@@ -3,13 +3,14 @@ name = "pw-przetwarzanie-danych"
 version = "0.1.0"
 description = "Reproducible news classification baselines"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "joblib>=1.6.0",
-    "scikit-learn>=1.9.1",
-    "nltk>=3.10.4",
+    "scikit-learn>=1.8.0",
+    "nltk>=3.9.1",
     "bs4>=0.0.2",
-    "wordcloud>=1.9.6",
-    "pandas>=3.1.1",
-    "ipykernel>=7.4.0",
+    "wordcloud>=1.9.4",
+    "pandas>=3.0.0",
+    "ipykernel>=6.29.0",
+    "matplotlib>=3.9.2",
 ]
