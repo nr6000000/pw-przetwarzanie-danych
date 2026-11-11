@@ -1,0 +1,43 @@
+{
+    "deterministic": false,
+    "pipeline": [
+        {
+            "name": "stopword_cleaner",
+            "args": {}
+        },
+        {
+            "name": "tfidf",
+            "args": {
+                "analyzer": "word",
+                "lowercase": true,
+                "strip_accents": null,
+                "token_pattern": "(?u)\\b\\w\\w+\\b",
+                "ngram_range": [1, 1],
+                "stop_words": null,
+                "min_df": 1,
+                "max_df": 1.0,
+                "max_features": null,
+                "binary": false,
+                "norm": "l2",
+                "use_idf": true,
+                "smooth_idf": true,
+                "sublinear_tf": false
+            }
+        },
+        {
+            "name": "linear_svc" ,
+            "args": {
+                "C": 1.0,
+                "penalty": "l2",
+                "loss": "squared_hinge",
+                "dual": true,
+                "tol": 0.0001,
+                "max_iter": 10000,
+                "fit_intercept": true,
+                "intercept_scaling": 1.0,
+                "class_weight": null,
+                "multi_class": "ovr"
+            }
+        }
+    ]
+}

@@ -22,6 +22,8 @@ from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 
+from preprocess import DictionaryCleaner, FreqWordCleaner, HtmlCleaner, StopwordCleaner
+
 
 @dataclass
 class Split:
@@ -96,6 +98,14 @@ def build_model(config: dict, seed: int):
             model = TfidfVectorizer(**args)
         elif step["name"] == "linear_svc":
             model = LinearSVC(**step["args"], random_state=seed)
+        elif step["name"] == "html_cleaner":
+            model = HtmlCleaner(**step["args"])
+        elif step["name"] == "dictionary_cleaner":
+            model = DictionaryCleaner(**step["args"])
+        elif step["name"] == "stopword_cleaner":
+            model = StopwordCleaner(**step["args"])
+        elif step["name"] == "freqword_cleaner":
+            model = FreqWordCleaner(**step["args"])
         else:
             raise ValueError(f"Unknown model: {step["name"]}")
 

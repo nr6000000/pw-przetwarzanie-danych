@@ -1,10 +1,15 @@
 import re
+import warnings
 from collections import Counter
 from html import unescape
+from pathlib import Path
 
 import nltk
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 from nltk.corpus import stopwords
+from sklearn.base import BaseEstimator, TransformerMixin
+
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 
 def extract_words(texts: list[str]):
@@ -14,43 +19,80 @@ def extract_words(texts: list[str]):
 """
 Strips HTML tags (doesn't lower letters and leaves special characters) 
 """
-def strip_html(texts: list[str]):
-    def strip_one(text: str):
-        html_text = unescape(text)
-        return BeautifulSoup(html_text, features='html.parser').get_text()
+class HtmlCleaner(TransformerMixin, BaseEstimator):
+    def __init__(self):
+        pass
 
-    return [strip_one(text) for text in texts]
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X):
+        def strip_one(text: str):
+            html_text = unescape(text)
+            return BeautifulSoup(html_text, features='html.parser').get_text()
+
+        return [strip_one(text) for text in X]    
 
 """
 Extracts from text proper words only and removes ones not included 
 in provided dictionary
 """
-def strip_dict(texts: list[str], dictionary: set[str], exclude=False):
-    words = extract_words(texts)
-    def strip_one(words: list[str]):
-        return ' '.join(word for word in words
-                        if (word in dictionary) != exclude)
+class DictionaryCleaner(TransformerMixin, BaseEstimator):
+    def __init__(
+            self, 
+            dictionary: set[str] | None = None, 
+            dictionary_path: str | None = None, 
+            exclude=False):
+        
+        if dictionary is not None:
+            self.dictionary = dictionary
+        elif dictionary_path is not None:
+            with open(dictionary_path, "r", encoding="utf-8") as file:
+                self.dictionary = {line.strip() for line in file if line.strip()}
+        else:
+            raise ValueError("Either pass dictionary or dictionary_path")
+
+        self.exclude = exclude
+
+    def fit(self, X, y=None):
+        return self
     
-    return [strip_one(text_words) for text_words in words] 
+    def transform(self, X):
+        words = extract_words(X)
+        def strip_one(words: list[str]):
+            return ' '.join(word for word in words
+                            if (word in self.dictionary) != self.exclude)
+        
+        return [strip_one(text_words) for text_words in words] 
 
 """
 Extracts from text proper words only and removes stopwords
 """
-def strip_stopwords(texts: list[str]):
-    nltk.download('stopwords')
-    return strip_dict(texts, set(stopwords.words('english')), exclude=True)
+class StopwordCleaner(DictionaryCleaner):
+    def __init__(self):
+        nltk.download('stopwords', quiet=True)
+        super().__init__(set(stopwords.words('english')), exclude=True)
 
 """
 Extracts from text proper words only and removes most and least frequent
 """
-def strip_by_freq(texts: list[str], min_df: float, max_df: float):
-    words = extract_words(texts)
+class FreqWordCleaner(TransformerMixin, BaseEstimator):
+    def __init__(self, min_df: float, max_df: float):
+        self.min_df = min_df
+        self.max_df = max_df
+
+    def fit(self, X, y=None):
+        words = extract_words(X)
     
-    # Maximum one word per text
-    words_exists = [list(set(text_words)) for text_words in words]
-    words_flat = [words for words in words_exists for words in words]
-    words_count = Counter(words_flat)
-    allowed_words = {word for word, count in words_count.items()
-                        if min_df < count/len(texts) < max_df}
+        # Maximum one word per text
+        words_exists = [list(set(text_words)) for text_words in words]
+        words_flat = [word for text in words_exists for word in text]
+        words_count = Counter(words_flat)
+        self.allowed_words = {word for word, count in words_count.items()
+                            if self.min_df <= count/len(words) <= self.max_df}
+
+        return self
     
-    return strip_dict(texts, allowed_words)
+    def transform(self, X):
+        cleaner = DictionaryCleaner(self.allowed_words)
+        return cleaner.transform(X)

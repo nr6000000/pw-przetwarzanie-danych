@@ -73,6 +73,8 @@ Klasyfikator wiadomości na platformie typu agregator wiadomości (dobór reklam
 - P3
   Usunięcie wszystkich słów nienależących do standardowego słownika (a więc też nazw własnych itd.)
 - P4
+  Usunięcie słów bardzo częstych/bardzo rzadkich
+- P5
   Warianty: tytuł+opis, tytuł, opis
 - M
   
