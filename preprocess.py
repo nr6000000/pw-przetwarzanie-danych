@@ -11,6 +11,8 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
+TOKEN_PATTERN = re.compile(r'(?u)\b\w\w+\b')
+
 
 def extract_words(texts: list[str]):
     words = [re.sub(r'[^A-Za-z\s]', ' ', text).lower().split() for text in texts]
@@ -29,7 +31,7 @@ class HtmlCleaner(TransformerMixin, BaseEstimator):
     def transform(self, X):
         def strip_one(text: str):
             html_text = unescape(text)
-            return BeautifulSoup(html_text, features='html.parser').get_text()
+            return BeautifulSoup(html_text, features='html.parser').get_text(separator=' ')
 
         return [strip_one(text) for text in X]    
 
@@ -43,7 +45,7 @@ class DictionaryCleaner(TransformerMixin, BaseEstimator):
             dictionary: set[str] | None = None, 
             dictionary_path: str | None = None, 
             exclude=False):
-        
+        self.dictionary_path = dictionary_path
         if dictionary is not None:
             self.dictionary = dictionary
         elif dictionary_path is not None:
@@ -58,12 +60,11 @@ class DictionaryCleaner(TransformerMixin, BaseEstimator):
         return self
     
     def transform(self, X):
-        words = extract_words(X)
-        def strip_one(words: list[str]):
-            return ' '.join(word for word in words
-                            if (word in self.dictionary) != self.exclude)
+        def strip_one(match):
+            word = match.group()
+            return word if (word.lower() in self.dictionary) != self.exclude else ' '
         
-        return [strip_one(text_words) for text_words in words] 
+        return [TOKEN_PATTERN.sub(strip_one, text) for text in X]
 
 """
 Extracts from text proper words only and removes stopwords
@@ -94,5 +95,6 @@ class FreqWordCleaner(TransformerMixin, BaseEstimator):
         return self
     
     def transform(self, X):
-        cleaner = DictionaryCleaner(self.allowed_words)
-        return cleaner.transform(X)
+        words = extract_words(X)
+        return [' '.join(word for word in text_words if word in self.allowed_words)
+                for text_words in words]

@@ -14,7 +14,7 @@ import runner
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIG_PATH = ROOT / "configs/baselines.json"
+MODEL_PATHS = {name: ROOT / "models" / f"{name}.json" for name in ("b0", "b1")}
 TRAIN = [
     ("Business", "Company profits rise as sales recover", "<p>Revenue climbed &amp; profit margins improved.</p>"),
     ("Sci/Tech", "Researchers unveil faster computer chip", "The processor uses less power than earlier models."),
@@ -34,7 +34,10 @@ class BaselineTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        self.config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        self.configs = {
+            name: json.loads(path.read_text(encoding="utf-8"))
+            for name, path in MODEL_PATHS.items()
+        }
 
     def write_split(self, name, rows):
         path = self.root / name
@@ -49,7 +52,7 @@ class BaselineTests(unittest.TestCase):
             ("Business", "Banks report higher quarterly earnings", "Lending income increased during the quarter.")])
         val = self.write_split("val.csv", [VAL[3], VAL[0],
             ("World", "Aid shipments reach flooded towns", "Relief teams delivered food and medical supplies.")])
-        model = runner.build_model("b0", self.config)
+        model = runner.build_model(self.configs["b0"], seed=0)
         model.fit(train.texts, train.labels)
 
         metrics, predictions = runner.evaluate(model, val, ["Business", "World"])
@@ -62,7 +65,7 @@ class BaselineTests(unittest.TestCase):
     def test_b1_preserves_html_and_does_not_learn_validation_words(self):
         train = self.write_split("train.csv", TRAIN)
         val = self.write_split("val.csv", VAL)
-        model = runner.build_model("b1", self.config)
+        model = runner.build_model(self.configs["b1"], seed=0)
         model.fit(train.texts, train.labels)
         vocabulary = dict(model.named_steps["tfidf"].vocabulary_)
 
@@ -86,8 +89,9 @@ class BaselineTests(unittest.TestCase):
         val = self.write_split("val.csv", VAL)
         output_root = self.root / "results"
         completed = subprocess.run(
-            [sys.executable, str(ROOT / "baselines.py"), "--data-dir", str(self.root),
-             "--output-dir", str(output_root), "--config", str(CONFIG_PATH)],
+            [sys.executable, str(ROOT / "runner.py"), "--data-dir", str(self.root),
+             "--output-dir", str(output_root), "--models",
+             *(str(path) for path in MODEL_PATHS.values())],
             capture_output=True, text=True, check=False,
         )
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
@@ -95,13 +99,15 @@ class BaselineTests(unittest.TestCase):
         manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["status"], "complete")
         self.assertEqual(set(manifest["data"]), {"train", "val"})
-        self.assertEqual(manifest["seeds"], self.config["seeds"])
+        seeds = manifest["seeds"]
+        self.assertEqual(len(seeds), 3)
+        self.assertEqual(len(set(seeds)), 3)
         aggregate = json.loads((folder / "aggregate.json").read_text(encoding="utf-8"))
         self.assertEqual(aggregate["b0"]["val"]["n_runs"], 1)
-        self.assertEqual(aggregate["b1"]["val"]["n_runs"], 3)
+        self.assertEqual(aggregate["b1"]["val"]["n_runs"], len(seeds))
         with (folder / "summary.csv").open(encoding="utf-8", newline="") as stream:
-            self.assertEqual(len(list(csv.DictReader(stream))), 4)
-        for name in ["b0", *(f"b1-seed-{seed}" for seed in self.config["seeds"])]:
+            self.assertEqual(len(list(csv.DictReader(stream))), 1 + len(seeds))
+        for name in ["b0", *(f"b1-seed-{seed}" for seed in seeds)]:
             run = folder / name
             metrics = json.loads((run / "metrics.json").read_text(encoding="utf-8"))
             self.assertEqual(set(metrics["splits"]), {"val"})
