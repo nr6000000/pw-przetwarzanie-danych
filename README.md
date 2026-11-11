@@ -86,3 +86,30 @@ Klasyfikator wiadomości na platformie typu agregator wiadomości (dobór reklam
   A może oba
 - L
   LLM w wariantach zero-shot i few-shot
+
+# Dane i odtworzenie wyników
+
+### Dane
+
+- Źródło: oryginalny korpus AG's corpus of news articles (z niego zbudowano benchmark AG News): <http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html>
+- Pobranie: <http://groups.di.unipi.it/~gulli/newsSpace.bz2> (plik `newsSpace.bz2` zapisać w katalogu głównym repozytorium; nie jest w gicie)
+- Warunki użycia: według opisu korpusu (cytowanego też w `eda/old_ag_news_csv/readme.txt`) dane udostępniono do celów badawczych i innej działalności niekomercyjnej. Licencja kodu repozytorium nie obejmuje artykułów.
+
+### Odtworzenie wyników
+
+Wszystkie polecenia uruchamiać z katalogu głównego repozytorium. Zależności: `uv sync` (Python 3.13, `pyproject.toml`), potem polecenia przez `uv run` albo w aktywnym środowisku.
+
+```bash
+# 1. Dane: raw_newsspace.csv i newsspace_era_b.csv (do EDA) oraz splits/ (train, val, test, test-future)
+python prepare_newsspace.py newsSpace.bz2 --raw --full --train
+
+# 2. B0, B1 i warianty P; wyniki w results/<czas>-<id>/ (P2 przy pierwszym uruchomieniu pobiera stop-słowa NLTK)
+python runner.py --models models/b0.json models/b1.json models/p1b1.json models/p2b1.json models/p3b1.json models/p4b1.json
+
+# 3. Testy
+python -m unittest discover -s tests
+```
+
+Ocenę na zbiorze testowym (`--evaluate-test`) uruchamiać dopiero po zamrożeniu wyboru wariantów.
+
+Notatniki w `eda/` korzystają z plików z kroku 1 i działają uruchomione zarówno z `eda/`, jak i z katalogu głównego: `newsspace_analysis.ipynb` (cały korpus, ery A i B), `eda_era_b.ipynb` (tekst klas modelowanych w erze B), `old_eda.ipynb` (archiwalne EDA na 4-klasowym AG News).
