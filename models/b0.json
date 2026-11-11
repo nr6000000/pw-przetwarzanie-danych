@@ -1,0 +1,9 @@
+{
+    "deterministic": true, 
+    "pipeline": [
+        {
+            "name": "dummy",
+            "args": {}
+        }
+    ]
+}

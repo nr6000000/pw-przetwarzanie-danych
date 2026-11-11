@@ -10,7 +10,7 @@ import unittest
 
 import joblib
 
-import baselines
+import runner
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,17 +42,17 @@ class BaselineTests(unittest.TestCase):
             writer = csv.writer(stream)
             writer.writerow(["category", "title", "description"])
             writer.writerows(rows)
-        return baselines.load_split(path)
+        return runner.load_split(path)
 
     def test_b0_uses_training_majority_and_reports_known_metrics(self):
         train = self.write_split("train.csv", [TRAIN[0], TRAIN[3],
             ("Business", "Banks report higher quarterly earnings", "Lending income increased during the quarter.")])
         val = self.write_split("val.csv", [VAL[3], VAL[0],
             ("World", "Aid shipments reach flooded towns", "Relief teams delivered food and medical supplies.")])
-        model = baselines.build_model("b0", self.config)
+        model = runner.build_model("b0", self.config)
         model.fit(train.texts, train.labels)
 
-        metrics, predictions = baselines.evaluate(model, val, ["Business", "World"])
+        metrics, predictions = runner.evaluate(model, val, ["Business", "World"])
 
         self.assertEqual(predictions, ["Business"] * 3)
         self.assertAlmostEqual(metrics["accuracy"], 1 / 3)
@@ -62,11 +62,11 @@ class BaselineTests(unittest.TestCase):
     def test_b1_preserves_html_and_does_not_learn_validation_words(self):
         train = self.write_split("train.csv", TRAIN)
         val = self.write_split("val.csv", VAL)
-        model = baselines.build_model("b1", self.config)
+        model = runner.build_model("b1", self.config)
         model.fit(train.texts, train.labels)
         vocabulary = dict(model.named_steps["tfidf"].vocabulary_)
 
-        baselines.evaluate(model, val, sorted(set(train.labels)))
+        runner.evaluate(model, val, sorted(set(train.labels)))
 
         self.assertEqual(train.texts[0], TRAIN[0][1] + "\n" + TRAIN[0][2])
         self.assertIn("amp", vocabulary)
@@ -79,7 +79,7 @@ class BaselineTests(unittest.TestCase):
             ("World", "  LEADERS   AGREE ON NEW PEACE TREATY  ", TRAIN[3][2].upper())])
 
         with self.assertRaises(ValueError):
-            baselines.validate_splits({"train": train, "val": val})
+            runner.validate_splits({"train": train, "val": val})
 
     def test_cli_saves_both_models_and_three_seed_reports_without_test_files(self):
         self.write_split("train.csv", TRAIN)

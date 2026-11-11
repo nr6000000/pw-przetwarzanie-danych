@@ -7,4 +7,9 @@ requires-python = ">=3.13"
 dependencies = [
     "joblib>=1.6.0",
     "scikit-learn>=1.9.1",
+    "nltk>=3.10.4",
+    "bs4>=0.0.2",
+    "wordcloud>=1.9.6",
+    "pandas>=3.1.1",
+    "ipykernel>=7.4.0",
 ]

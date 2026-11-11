@@ -1,20 +1,18 @@
-"""Train B0 and B1 on prepared CSV splits; validation is the default evaluation."""
-
 import argparse
-from collections import Counter, defaultdict
 import csv
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
-from importlib.metadata import version
 import json
 import os
-from pathlib import Path
 import platform
 import statistics
 import time
 import uuid
 import warnings
+from collections import Counter, defaultdict
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from importlib.metadata import version
+from pathlib import Path
 
 import joblib
 from sklearn.dummy import DummyClassifier
@@ -23,6 +21,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
+
 
 @dataclass
 class Split:
@@ -83,22 +82,26 @@ def validate_splits(splits: dict[str, Split]) -> list[str]:
             seen_texts[key] = name
     return labels
 
+def build_model(config: dict, seed: int):
+    pipeline = []
+    for step in config["pipeline"]:
+        if step["name"] == "dummy":
+            # sklearn orders string classes alphabetically and argmax breaks ties first.
+            model = DummyClassifier(strategy="most_frequent")
+        elif step["name"] == "tfidf":
+            args = {
+                **step["args"], 
+                "ngram_range": tuple(step["args"]["ngram_range"])
+            }
+            model = TfidfVectorizer(**args)
+        elif step["name"] == "linear_svc":
+            model = LinearSVC(**step["args"], random_state=seed)
+        else:
+            raise ValueError(f"Unknown model: {step["name"]}")
 
-def build_model(name: str, config: dict, seed: int | None = None):
-    if name == "b0":
-        # sklearn orders string classes alphabetically and argmax breaks ties first.
-        return DummyClassifier(strategy="most_frequent")
-    if name != "b1":
-        raise ValueError(f"Unknown model: {name}")
-    tfidf = dict(config["tfidf"])
-    tfidf["ngram_range"] = tuple(tfidf["ngram_range"])
-    return Pipeline([
-        ("tfidf", TfidfVectorizer(**tfidf)),
-        ("classifier", LinearSVC(**dict(
-            config["classifier"], random_state=config["seeds"][0] if seed is None else seed,
-        ))),
-    ])
-
+        pipeline.append((step["name"], model))
+    
+    return Pipeline(pipeline)
 
 def evaluate(model, split: Split, labels: list[str]) -> tuple[dict, list[str]]:
     started = time.perf_counter()
@@ -129,12 +132,13 @@ def write_csv(path: Path, header, rows) -> None:
 
 
 def run(args: argparse.Namespace) -> Path:
-    if not args.models or len(set(args.models)) != len(args.models):
-        raise ValueError("Provide at least one model, without duplicates")
-    config = json.loads(args.config.read_text(encoding="utf-8"))
-    seeds = args.seeds if args.seeds is not None else config["seeds"]
-    if not seeds or len(set(seeds)) != len(seeds):
-        raise ValueError("Provide at least one seed, without duplicates")
+    # if not args.models or len(set(args.models)) != len(args.models):
+    #     raise ValueError("Provide at least one model, without duplicates")
+    
+    # seeds = args.seeds if args.seeds is not None else config["seeds"]
+    # if not seeds or len(set(seeds)) != len(seeds):
+    #     raise ValueError("Provide at least one seed, without duplicates")
+    
     names = ["train", "val"] + (["test"] if args.evaluate_test else [])
     splits = {name: load_split(args.data_dir / f"{name}.csv") for name in names}
     labels = validate_splits(splits)
@@ -145,9 +149,8 @@ def run(args: argparse.Namespace) -> Path:
     manifest = {
         "created_at_utc": timestamp,
         "status": "incomplete",
-        "config": config,
-        "seeds": seeds,
-        "models": args.models,
+        "seeds": args.seeds,
+
         "features": "original title + newline + original description",
         "record_id": "source record_id, or sha256(normalised title + description); row_index is zero-based",
         "duplicate_check": "record IDs and normalised full text across splits; see preparation manifest for near duplicates",
@@ -176,11 +179,17 @@ def run(args: argparse.Namespace) -> Path:
             "sha256": hashlib.sha256(preparation.read_bytes()).hexdigest(),
         }
     write_json(folder / "manifest.json", manifest)
+
     summary = []
-    for name in args.models:
-        for seed in [None] if name == "b0" else seeds:
-            model = build_model(name, config, seed=seed)
-            model_folder = folder / ("b0" if name == "b0" else f"b1-seed-{seed}")
+    for model_config_path in args.models:
+        name = model_config_path.stem
+        model_config = json.loads(model_config_path.read_text(encoding="utf-8"))
+        deterministic = model_config["deterministic"]
+
+        for seed in [0] if deterministic else args.seeds:
+            model = build_model(model_config, seed)
+    
+            model_folder = folder / (name if deterministic else f"{name}-seed-{seed}")
             model_folder.mkdir()
             started = time.perf_counter()
             with warnings.catch_warnings():
@@ -188,11 +197,11 @@ def run(args: argparse.Namespace) -> Path:
                 model.fit(train.texts, train.labels)
             fit_seconds = time.perf_counter() - started
             result = {"model": name, "seed": seed, "fit_seconds": fit_seconds, "splits": {}}
-            if name == "b0":
-                result["selected_class"] = str(model.predict([""])[0])
-                result["train_class_counts"] = dict(Counter(train.labels))
-            else:
-                result["vocabulary_size"] = len(model.named_steps["tfidf"].vocabulary_)
+            # if name == "b0":
+            #     result["selected_class"] = str(model.predict([""])[0])
+            #     result["train_class_counts"] = dict(Counter(train.labels))
+            # else:
+            #     result["vocabulary_size"] = len(model.named_steps["tfidf"].vocabulary_)
             for split_name in names[1:]:
                 split = splits[split_name]
                 metrics, predictions = evaluate(model, split, labels)
@@ -238,15 +247,15 @@ def run(args: argparse.Namespace) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-dir", type=Path, default=Path("splits/ag_news"))
-    parser.add_argument("--output-dir", type=Path, default=Path("results/baselines/ag_news"))
-    parser.add_argument("--config", type=Path, default=Path(__file__).parent / "configs/baselines.json")
-    parser.add_argument("--models", nargs="+", choices=["b0", "b1"], default=["b0", "b1"])
-    parser.add_argument("--seeds", nargs="+", type=int, default=None,
+    parser.add_argument("--data-dir", type=Path, default=Path("splits/"))
+    parser.add_argument("--output-dir", type=Path, default=Path("results/"))
+    parser.add_argument("--models", type=Path, nargs="+")
+    parser.add_argument("--seeds", nargs="+", type=int, default=[502561219, 805712426, 54137036],
                         help="B1 seeds; defaults to the configuration (B0 is fitted once)")
     parser.add_argument("--evaluate-test", action="store_true",
                         help="also evaluate the official test.csv after freezing experiments")
     args = parser.parse_args()
+
     try:
         run(args)
     except (OSError, ValueError, ConvergenceWarning) as exc:
