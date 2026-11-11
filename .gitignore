@@ -13,3 +13,8 @@ __pycache__/
 
 # outputs of prepare_newsspace.py --train
 splits/
+
+# baseline runs and local dependency downloads
+results/
+.uv-cache/
+.uv-python/
