@@ -1,9 +1,10 @@
 {
-    "deterministic": true, 
+    "deterministic": true,
+    "note": "Always predicts the most frequent class of the clean training split before balancing: Sci/Tech, 47,022 of 158,810 articles (eda/eda_era_b.ipynb, 3.1). train.csv is balanced, so its own majority would be a five-way tie.",
     "pipeline": [
         {
             "name": "dummy",
-            "args": {}
+            "args": {"strategy": "constant", "constant": "Sci/Tech"}
         }
     ]
 }

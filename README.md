@@ -63,7 +63,7 @@ Klasyfikator wiadomości na platformie typu agregator wiadomości (dobór reklam
 ### Preztwarzanie i Modele
 
 - B0
-  Klasyfikator przypisujący każdemu wejściu najczęstszą klasę w zbiorze treningowym.
+  Klasyfikator przypisujący każdemu wejściu najczęstszą klasę zbioru treningowego przed zbalansowaniem (Sci/Tech; `train.csv` jest zbalansowany, więc tam wszystkie klasy są równie częste).
 - B1
   TF-IDF + LinearSVC
 - P1

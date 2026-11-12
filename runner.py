@@ -88,8 +88,8 @@ def build_model(config: dict, seed: int):
     pipeline = []
     for step in config["pipeline"]:
         if step["name"] == "dummy":
-            # sklearn orders string classes alphabetically and argmax breaks ties first.
-            model = DummyClassifier(strategy="most_frequent")
+            # B0 sets a constant class in its config; without args: most frequent training class, ties alphabetical
+            model = DummyClassifier(**{"strategy": "most_frequent", **step["args"]})
         elif step["name"] == "tfidf":
             args = {
                 **step["args"], 
@@ -164,7 +164,7 @@ def run(args: argparse.Namespace) -> Path:
         "record_id": "source record_id, or sha256(normalised title + description); row_index is zero-based",
         "duplicate_check": "record IDs and normalised full text across splits; see preparation manifest for near duplicates",
         "label_order": labels,
-        "b0_tie_break": "alphabetically first of the most frequent training classes",
+        "b0": "DummyClassifier with the strategy and class given in its model configuration",
         "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "environment": {
             "python": platform.python_version(),

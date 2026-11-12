@@ -2,9 +2,10 @@ ERA B, 5 KLAS - WYNIKI WALIDACYJNE, 11.11.2026
 Trening: 95 460 rekordow. Walidacja: 17 203 rekordy.
 Klasy: Sci/Tech, World, Business, Entertainment, Sports.
 Ocena tylko na walidacji.
+b0 zawsze wskazuje Sci/Tech, najczestsza klase treningu przed zbalansowaniem (models/b0.json).
 
 Wariant       Macro-F1    Accuracy
-b0            0.0666      19.98%
+b0            0.0908      29.36%
 b1            0.8985      89.91%
 p1b1          0.8728      87.21%
 p2b1          0.8970      89.71%

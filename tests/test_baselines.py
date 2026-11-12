@@ -52,7 +52,7 @@ class BaselineTests(unittest.TestCase):
             ("Business", "Banks report higher quarterly earnings", "Lending income increased during the quarter.")])
         val = self.write_split("val.csv", [VAL[3], VAL[0],
             ("World", "Aid shipments reach flooded towns", "Relief teams delivered food and medical supplies.")])
-        model = runner.build_model(self.configs["b0"], seed=0)
+        model = runner.build_model({"pipeline": [{"name": "dummy", "args": {}}]}, seed=0)
         model.fit(train.texts, train.labels)
 
         metrics, predictions = runner.evaluate(model, val, ["Business", "World"])
@@ -120,7 +120,7 @@ class BaselineTests(unittest.TestCase):
             model = joblib.load(run / "model.joblib")
             self.assertEqual(model.predict(val.texts).tolist(), [row["y_pred"] for row in predictions])
             if name == "b0":
-                self.assertEqual(metrics["selected_class"], "Business")
+                self.assertEqual(metrics["selected_class"], "Sci/Tech")
                 self.assertAlmostEqual(metrics["splits"]["val"]["macro_f1"], 0.1)
 
 
